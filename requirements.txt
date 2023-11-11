@@ -1,4 +1,5 @@
 unicode
 PyAudio
+opencv-python
 SpeechRecognition
 git+https://github.com/janvdp/google-images-download.git # google-images-download (patched)
