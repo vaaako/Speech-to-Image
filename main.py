@@ -37,7 +37,9 @@ class SpeakImage:
 		self.FORMAT = pyaudio.paInt16
 		self.CHANNELS = 1
 		self.RATE = 44100
-		self.SECONDS = 2 # [!] Time of each record
+		self.SECONDS = 3 # [!] Time of each record
+		self.p = pyaudio.PyAudio()
+		self.stream = self.p.open(format=self.FORMAT,channels=self.CHANNELS, rate=self.RATE, input=True, frames_per_buffer=self.CHUNK)
 
 	def _resize_image(self, image):
 		# Open and resize
@@ -82,25 +84,19 @@ class SpeakImage:
 		return audio
 
 	def record_mic(self) -> str:
-		p = pyaudio.PyAudio()
-		stream = p.open(format=self.FORMAT,channels=self.CHANNELS, rate=self.RATE, input=True, frames_per_buffer=self.CHUNK)
 		
 		print("Recording...")
 
 		frames = []
 		for i in range(0, int(self.RATE / self.CHUNK * self.SECONDS)):
-			data = stream.read(self.CHUNK)
+			data = self.stream.read(self.CHUNK)
 			frames.append(data)
 
 		print("Record stopped")
 
-		stream.stop_stream()
-		stream.close()
-		p.terminate()
-
 		wf = wave.open(self.audio_out_dir, 'wb')
 		wf.setnchannels(self.CHANNELS)
-		wf.setsampwidth(p.get_sample_size(self.FORMAT))
+		wf.setsampwidth(self.p.get_sample_size(self.FORMAT))
 		wf.setframerate(self.RATE)
 		wf.writeframes(b''.join(frames))
 		wf.close()
@@ -194,3 +190,6 @@ if __name__ == '__main__':
 
 		spk.update_window()
 
+	spk.stream.stop_stream()
+	spk.stream.close()
+	spk.p.terminate()
