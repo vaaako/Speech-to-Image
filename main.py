@@ -1,6 +1,8 @@
-import cv2
+import tkinter as tk
 import pyaudio, wave
 import speech_recognition as sr
+
+from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 from shutil import move, rmtree
 from os import listdir, path
@@ -12,20 +14,22 @@ from unidecode import unidecode
 from google_images_download import google_images_download
 
 
+
 class SpeakImage:
-	def __init__(self):
+	def __init__(self, title: str = "Funny Image", size: int = 200):
 		# General
 		self.out_dir = "downloads" # Output images directory
 		self.audio_out_dir = 'output.wav'
-		self.last_query = None
+		self.last_search = None
 
-		# OpenCV
-		self.window_name = "Funny Images" # [!] Window title
-		self.MAX_SIZE = 200 # [!] Window size
-		self.font = cv2.FONT_HERSHEY_SIMPLEX
-		self.font_scale = 1
-		self.font_thickness = self.font_scale * 2
-		self.font_color = (0, 0, 255)
+		# TKinter
+		self.size = size
+		self.label = None
+		self.window = None
+		self.font_color = (255, 0, 0)
+		self.font_size = 32
+		self.font = ImageFont.truetype("media/arial_bold.ttf", self.font_size)
+
 
 		# Audio
 		self.r = sr.Recognizer() # Recognition
@@ -35,24 +39,40 @@ class SpeakImage:
 		self.RATE = 44100
 		self.SECONDS = 2 # [!] Time of each record
 
+	def _resize_image(self, image):
+		# Open and resize
+		img = Image.open(image)
+		img = img.resize((self.size, self.size), Image.LANCZOS)
 
-	def _make_window(self):
-		cv2.namedWindow(self.window_name, cv2.WND_PROP_FULLSCREEN) # Make window (this is just to resize it)
-		cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-		cv2.resizeWindow(self.window_name, (self.MAX_SIZE, self.MAX_SIZE))
+		return img
 
-	def _calc_new_size(self, img) -> tuple[int]:
-		org_h, org_w = img.shape[:2]
-		return (min(self.MAX_SIZE, (org_w // 2)), max(self.MAX_SIZE, (org_h // 2)))
+	def _put_text(self, img) -> tuple[int]:
+		width, height = img.size
 
-	def _put_text(self, img, top=False) -> tuple[int]:
-		# Calc text size
-		text_size = cv2.getTextSize(self.last_query, self.font, self.font_scale, self.font_thickness)[0]
-		if top: # Calc position
-			text_position = ((img.shape[1] - text_size[0]) // 2, text_size[1] + (text_size[1] // 2))
-		else:
-			text_position = ((img.shape[1] - text_size[0]) // 2, img.shape[0] - 10)
-		cv2.putText(img, self.last_query, text_position, self.font, self.font_scale, self.font_color, self.font_thickness)
+		# Draw object to the image
+		draw = ImageDraw.Draw(img)
+
+		# Load font
+		text_w, text_h = draw.textsize(self.last_search, font=self.font)
+
+		# Calc text position
+		x = (width - text_w) / 2
+		y = height - text_h - self.font_size
+
+		# Add to image
+		draw.text((x, y), self.last_search, fill=self.font_color, font=self.font)
+		pass
+
+	def init_window(self, title: str = "Funny Images"):
+		self.window = tk.Tk()	
+		self.window.title(title)
+		self.window.geometry(f'{self.size}x{self.size}')
+
+		# Just to init
+		self.label = tk.Label(self.window)
+		self.label.pack()
+		self.update_window()
+	
 
 	# Listen to mic instead of recording it
 	def liste_mic(self):
@@ -92,7 +112,7 @@ class SpeakImage:
 	def recognize_audio(self, audio) -> str:
 		try:
 			speak = self.r.recognize_google(audio, language='pt-BR') # Recognize Mic speak
-			self.last_query = unidecode(speak)
+			self.last_search = unidecode(speak)
 			print("=> Recognized " + speak)
 
 			return unidecode(speak) # Remove accents and not english letters (e.g. = Alçapão => Alcapao)
@@ -136,24 +156,31 @@ class SpeakImage:
 		# Return image path
 		return f'{self.out_dir}/{query}/{image_names[0]}'
 
+	def update_window(self):
+		self.window.update_idletasks()
 
 	def display(self, image, init=False):
 		if init: # Window not inited
 			self._make_window()
-
-		img = cv2.imread(image)
-		img = cv2.resize(img, (self.MAX_SIZE, self.MAX_SIZE)) # Resize image
+			return
+		
+		img = self._resize_image(image)
 		self._put_text(img)
-		cv2.imshow(self.window_name, img)
+		img = ImageTk.PhotoImage(img)
 
-		# Images not needed anymore delete it 
-		# rmtree(path.join(self.out_dir, query))
+		self.label.config(image=img)
+		self.label.image = img
+
+
 
 
 if __name__ == '__main__':
-	spk = SpeakImage()
-
-	spk.display('init.jpg', init=True) # Init window
+	# [!] Window size
+	spk = SpeakImage("Funny Images", 200)
+	
+	# Init window
+	# [!] Window title
+	spk.init_window("Funny Images")
 	while True:
 		audio = spk.record_mic()
 		rec   = spk.recognize_audio(audio)
@@ -165,8 +192,5 @@ if __name__ == '__main__':
 		image = spk.image(rec, 1) # Args: Text and [!] Images amount
 		display = spk.display(image)
 
-		if cv2.waitKey(1) == ord('q'):
-			break
-		sleep(2)
-	cv2.destroyAllWindows()
+		spk.update_window()
 

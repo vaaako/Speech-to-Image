@@ -26,5 +26,5 @@ python3 main.py
 ```
 
 ### WARNING
-I added `[!]` to arguments in the script
- that you might want to change
+I added [!] to arguments in the script
+ that you might want to change.
